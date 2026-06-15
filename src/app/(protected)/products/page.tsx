@@ -108,11 +108,11 @@ export default async function ProductsPage({
                   <tr key={product.id}>
                     <td>
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                           {product.imageUrl ? (
                             <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
                           ) : (
-                            <Package className="h-4 w-4 text-amber-500" />
+                            <Package className="h-4 w-4 text-amber-500 dark:text-amber-400" />
                           )}
                         </div>
                         <span className="font-semibold text-foreground">{product.name}</span>

@@ -48,17 +48,17 @@ export default async function ReportsPage({
 
   const [filteredInvoices, filteredItems, lowStockProducts] =
     await Promise.all([
-      prisma.invoice.findMany({ 
-        where: { createdAt: { gte: startDate, lte: endDate } },
+      prisma.invoice.findMany({
+        where: { createdAt: { gte: startDate, lte: endDate }, status: { not: "REFUNDED" } },
         orderBy: { createdAt: "desc" },
         include: { customer: true, order: true }
       }),
-      prisma.invoiceItem.findMany({ 
-        where: { invoice: { createdAt: { gte: startDate, lte: endDate } } },
-        include: { product: true } 
+      prisma.invoiceItem.findMany({
+        where: { invoice: { createdAt: { gte: startDate, lte: endDate }, status: { not: "REFUNDED" } } },
+        include: { product: true }
       }),
       prisma.product.findMany({
-        where: { stock: { lt: 10 } },
+        where: { stock: { lt: 10, not: 999999 } },
         orderBy: { stock: "asc" },
         take: 10,
       }),
@@ -81,15 +81,18 @@ export default async function ReportsPage({
 
   const productSales = new Map<number, { name: string; qty: number; revenue: number }>();
   filteredItems.forEach((item) => {
+    const soldQty = item.qty - item.returnedQty;
+    if (soldQty <= 0) return;
+    const revenue = parseFloat((soldQty * item.price).toFixed(2));
     const existing = productSales.get(item.productId);
     if (existing) {
-      existing.qty += item.qty;
-      existing.revenue += item.qty * item.price;
+      existing.qty += soldQty;
+      existing.revenue += revenue;
     } else {
       productSales.set(item.productId, {
         name: item.product.name,
-        qty: item.qty,
-        revenue: item.qty * item.price,
+        qty: soldQty,
+        revenue,
       });
     }
   });

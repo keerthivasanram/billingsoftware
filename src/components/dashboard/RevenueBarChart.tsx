@@ -8,7 +8,7 @@ import {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-slate-900 text-white px-3 py-2 rounded-xl text-sm shadow-xl border border-slate-700 min-w-[120px]">
+      <div className="bg-slate-900 text-white px-3 py-2 rounded-xl text-sm shadow-[0_20px_40px_rgba(0,0,0,0.3)] border border-slate-700 min-w-[120px]">
         <p className="text-slate-400 text-xs mb-2 font-medium">{label}</p>
         <div className="space-y-1">
           {payload.map((p: any, idx: number) => (
@@ -84,6 +84,8 @@ export function RevenueBarChart({ data }: { data: { date: string; total: number;
             fill="url(#revenueGradient)"
             dot={{ fill: '#818cf8', strokeWidth: 2, r: 3, stroke: '#fff' }}
             activeDot={{ fill: '#818cf8', strokeWidth: 2, r: 5, stroke: '#fff' }}
+            animationDuration={1200}
+            animationEasing="ease-out"
           />
           <Area
             type="monotone"
@@ -94,6 +96,8 @@ export function RevenueBarChart({ data }: { data: { date: string; total: number;
             fill="url(#profitGradient)"
             dot={{ fill: '#10b981', strokeWidth: 2, r: 3, stroke: '#fff' }}
             activeDot={{ fill: '#10b981', strokeWidth: 2, r: 5, stroke: '#fff' }}
+            animationDuration={1200}
+            animationEasing="ease-out"
           />
         </AreaChart>
       </ResponsiveContainer>

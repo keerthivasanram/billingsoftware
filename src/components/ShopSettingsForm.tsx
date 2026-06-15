@@ -9,7 +9,8 @@ type ShopSettingsFormProps = {
     storeName: string;
     gstNumber: string | null;
     address: string | null;
-  };
+    printerName?: string | null;
+  } | null;
 };
 
 export function ShopSettingsForm({ initialData }: ShopSettingsFormProps) {

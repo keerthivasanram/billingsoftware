@@ -20,19 +20,21 @@ model User {
 }
 
 model Product {
-  id          Int           @id @default(autoincrement())
-  name        String
-  barcode     String?       @unique
-  price       Float
-  costPrice   Float         @default(0)
-  gstRate     Float         @default(0)
-  stock       Int           @default(0)
-  category    String?
-  imageUrl    String?
-  invoiceItems InvoiceItem[]
+  id            Int           @id @default(autoincrement())
+  name          String
+  barcode       String?       @unique
+  price         Float
+  costPrice     Float         @default(0)
+  gstRate       Float         @default(0)
+  stock         Int           @default(0)
+  category      String?
+  unit          String        @default("pcs") // pcs, kg, g, L, ml, box, dozen
+  hsnCode       String?       // HSN/SAC code for GST compliance
+  imageUrl      String?
+  invoiceItems  InvoiceItem[]
   purchaseItems PurchaseItem[]
-  orderItems  OrderItem[]
-  recipeItems RecipeItem[]
+  orderItems    OrderItem[]
+  recipeItems   RecipeItem[]
 }
 
 model Customer {
@@ -57,7 +59,7 @@ model Invoice {
   invoiceNumber String        @unique
   customerId    Int?
   customer      Customer?     @relation(fields: [customerId], references: [id])
-  
+
   subtotal      Float         @default(0)
   gstRate       Float         @default(0)
   gstAmount     Float         @default(0)
@@ -65,10 +67,13 @@ model Invoice {
   total         Float
   paymentMethod String        @default("Cash")
   status        String        @default("PAID") // "PAID", "PARTIAL_REFUND", "REFUNDED"
-  
+
+  cashierName   String?       // Staff name who processed this bill
+  notes         String?       // Optional bill notes
+
   orderId       Int?          @unique
   order         Order?        @relation(fields: [orderId], references: [id])
-  
+
   createdAt     DateTime      @default(now())
   items         InvoiceItem[]
 }

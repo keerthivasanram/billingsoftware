@@ -60,11 +60,11 @@ export default async function TallyPage({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-card border border-border rounded-2xl p-6 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 right-0 p-6 opacity-10">
-            <TrendingUp className="h-24 w-24 text-emerald-500" />
+            <TrendingUp className="h-24 w-24 text-emerald-500 dark:text-emerald-400" />
           </div>
           <div className="relative z-10">
             <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-              <ArrowUpRight className="h-4 w-4 text-emerald-500" /> Total Inflow (Revenue)
+              <ArrowUpRight className="h-4 w-4 text-emerald-500 dark:text-emerald-400" /> Total Inflow (Revenue)
             </p>
             <p className="text-3xl font-black text-foreground mt-2">₹{tally.totalRevenue.toLocaleString()}</p>
             <p className="text-sm text-muted-foreground mt-1">From {tally.invoicesCount} Sales Invoices</p>
@@ -73,11 +73,11 @@ export default async function TallyPage({
 
         <div className="bg-card border border-border rounded-2xl p-6 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 right-0 p-6 opacity-10">
-            <TrendingDown className="h-24 w-24 text-rose-500" />
+            <TrendingDown className="h-24 w-24 text-rose-500 dark:text-rose-400" />
           </div>
           <div className="relative z-10">
             <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
-              <ArrowDownRight className="h-4 w-4 text-rose-500" /> Total Outflow (Expense)
+              <ArrowDownRight className="h-4 w-4 text-rose-500 dark:text-rose-400" /> Total Outflow (Expense)
             </p>
             <p className="text-3xl font-black text-foreground mt-2">₹{tally.totalExpense.toLocaleString()}</p>
             <p className="text-sm text-muted-foreground mt-1">From {tally.expensesCount} Expense Entries (inc. Salaries)</p>

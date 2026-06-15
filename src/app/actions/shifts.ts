@@ -39,15 +39,17 @@ export async function closeShift(shiftId: number, closingBalance: number) {
       return { error: "Shift not found or already closed." };
     }
 
-    // Calculate cash sales from invoices created during this shift
+    // Calculate cash sales from invoices created during this shift (exclude refunds)
+    const now = new Date();
     const invoices = await prisma.invoice.findMany({
       where: {
-        createdAt: { gte: shift.openedAt },
-        paymentMethod: "CASH"
+        createdAt: { gte: shift.openedAt, lte: now },
+        paymentMethod: "Cash",
+        status: { not: "REFUNDED" },
       }
     });
 
-    const cashSales = invoices.reduce((sum, inv) => sum + inv.total, 0);
+    const cashSales = parseFloat(invoices.reduce((sum, inv) => sum + inv.total, 0).toFixed(2));
 
     const closedShift = await prisma.shift.update({
       where: { id: shiftId },

@@ -15,11 +15,14 @@ type ProductFormProps = {
     gstRate: number;
     stock: number;
     category: string | null;
+    unit?: string | null;
+    hsnCode?: string | null;
     imageUrl?: string | null;
   };
 };
 
 export function ProductForm({ initialData }: ProductFormProps) {
+  const isEdit = !!initialData;
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [price, setPrice] = useState(initialData?.price?.toString() ?? "");
@@ -27,7 +30,6 @@ export function ProductForm({ initialData }: ProductFormProps) {
   const [trackStock, setTrackStock] = useState(isEdit ? (initialData?.stock !== 999999) : false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const router = useRouter();
-  const isEdit = !!initialData;
 
   // Calculate live margin
   const p = parseFloat(price) || 0;
@@ -87,6 +89,19 @@ export function ProductForm({ initialData }: ProductFormProps) {
       placeholder: "e.g. Groceries, Electronics",
       hint: "Optional",
       icon: Tag,
+      colSpan: "",
+      prefix: null,
+    },
+    {
+      id: "hsnCode",
+      name: "hsnCode",
+      label: "HSN / SAC Code",
+      type: "text",
+      required: false,
+      defaultValue: initialData?.hsnCode ?? "",
+      placeholder: "e.g. 1006, 9963",
+      hint: "For GST filing",
+      icon: Hash,
       colSpan: "",
       prefix: null,
     },
@@ -263,6 +278,22 @@ export function ProductForm({ initialData }: ProductFormProps) {
                     <option value="12">12%</option>
                     <option value="18">18%</option>
                     <option value="28">28%</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="unit" className="input-label">Unit of Measure</label>
+                  <select id="unit" name="unit" defaultValue={initialData?.unit || "pcs"} className="input-field mt-1">
+                    <option value="pcs">pcs (Pieces)</option>
+                    <option value="kg">kg (Kilogram)</option>
+                    <option value="g">g (Gram)</option>
+                    <option value="L">L (Litre)</option>
+                    <option value="ml">ml (Millilitre)</option>
+                    <option value="box">box</option>
+                    <option value="dozen">dozen</option>
+                    <option value="plate">plate</option>
+                    <option value="bottle">bottle</option>
+                    <option value="pack">pack</option>
                   </select>
                 </div>
 

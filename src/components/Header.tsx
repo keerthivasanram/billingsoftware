@@ -1,54 +1,140 @@
 "use client";
 
-import { Bell, Search, LogOut } from "lucide-react";
+import { Bell, Search, LogOut, Menu } from "lucide-react";
 import { logout } from "@/app/actions/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
-export function Header() {
+export function Header({
+  onOpenSidebar,
+  hamburgerClass,
+}: {
+  onOpenSidebar?: () => void;
+  hamburgerClass?: string;
+}) {
   return (
-    <header className="h-16 bg-background/70 backdrop-blur-xl border-b border-border/50 shadow-sm flex items-center px-6 gap-4 print:hidden sticky top-0 z-30 flex-shrink-0">
-      {/* Search */}
-      <div className="flex-1 max-w-sm">
+    <header
+      className="h-14 flex items-center px-5 gap-3 print:hidden sticky top-0 z-30 flex-shrink-0"
+      style={{
+        background: "var(--header-bg)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        borderBottom: "1px solid var(--border)",
+        boxShadow: "0 1px 0 rgba(0,0,0,0.06)",
+      }}
+    >
+      {/* Hamburger / Menu Toggle */}
+      {hamburgerClass && (
+        <button
+          onClick={onOpenSidebar}
+          className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${hamburgerClass}`}
+          style={{ color: "var(--muted-foreground)" }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "var(--muted)";
+            (e.currentTarget as HTMLButtonElement).style.color = "var(--foreground)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+            (e.currentTarget as HTMLButtonElement).style.color = "var(--muted-foreground)";
+          }}
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+      )}
+
+      {/* Search Bar */}
+      <div className="flex-1 max-w-xs">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none"
+            style={{ color: "var(--muted-foreground)" }}
+          />
           <input
             type="text"
-            placeholder="Search anything..."
-            className="w-full pl-9 pr-4 py-2 text-sm bg-muted border border-border rounded-xl text-foreground placeholder-muted-foreground focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+            placeholder="Search..."
+            className="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg transition-all outline-none"
+            style={{
+              background: "var(--muted)",
+              border: "1px solid var(--border)",
+              color: "var(--foreground)",
+            }}
+            onFocus={(e) => {
+              (e.currentTarget as HTMLInputElement).style.border = "1px solid var(--primary)";
+              (e.currentTarget as HTMLInputElement).style.boxShadow = "0 0 0 3px rgba(139,92,246,0.15)";
+            }}
+            onBlur={(e) => {
+              (e.currentTarget as HTMLInputElement).style.border = "1px solid var(--border)";
+              (e.currentTarget as HTMLInputElement).style.boxShadow = "none";
+            }}
           />
         </div>
       </div>
 
       <div className="flex-1" />
 
-      {/* Right side */}
-      <div className="flex items-center gap-2">
-        <ThemeToggle />
-        
+      {/* Right Controls */}
+      <div className="flex items-center gap-1.5">
+        {/* Theme Toggle */}
+        <div className="flex-shrink-0">
+          <ThemeToggle />
+        </div>
+
         {/* Notification Bell */}
-        <button className="relative p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-all group">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-background" />
+        <button
+          className="relative p-1.5 rounded-lg transition-colors"
+          style={{ color: "var(--muted-foreground)" }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "var(--muted)";
+            (e.currentTarget as HTMLButtonElement).style.color = "var(--foreground)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+            (e.currentTarget as HTMLButtonElement).style.color = "var(--muted-foreground)";
+          }}
+        >
+          <Bell style={{ width: "1.125rem", height: "1.125rem" }} />
+          <span
+            className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full"
+            style={{ background: "#ef4444", boxShadow: "0 0 6px rgba(239,68,68,0.8)" }}
+          />
         </button>
 
         {/* Divider */}
-        <div className="w-px h-6 bg-border mx-1" />
+        <div className="w-px h-5 mx-1" style={{ background: "var(--border)" }} />
 
-        {/* User Menu */}
-        <div className="flex items-center gap-2 pl-1">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-xs font-bold shadow-sm flex-shrink-0">
+        {/* User Avatar + Name */}
+        <div className="flex items-center gap-2.5 pl-0.5">
+          <div
+            className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+            style={{
+              background: "linear-gradient(135deg, #8b5cf6, #22d3ee)",
+              boxShadow: "0 0 12px rgba(139,92,246,0.4)",
+            }}
+          >
             A
           </div>
           <div className="hidden sm:block text-left">
-            <p className="text-sm font-semibold text-foreground leading-none">Admin</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Administrator</p>
+            <p className="text-xs font-semibold leading-none" style={{ color: "var(--foreground)" }}>
+              Admin
+            </p>
+            <p className="text-[11px] mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+              Administrator
+            </p>
           </div>
 
-          {/* Logout Button */}
+          {/* Logout */}
           <button
             onClick={() => logout()}
-            className="ml-2 p-2 rounded-xl text-muted-foreground hover:text-rose-500 hover:bg-destructive/10 transition-all"
+            className="ml-1 p-1.5 rounded-lg transition-colors"
             title="Sign out"
+            style={{ color: "var(--muted-foreground)" }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.1)";
+              (e.currentTarget as HTMLButtonElement).style.color = "#f87171";
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+              (e.currentTarget as HTMLButtonElement).style.color = "var(--muted-foreground)";
+            }}
           >
             <LogOut className="h-4 w-4" />
           </button>

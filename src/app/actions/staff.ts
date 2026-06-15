@@ -47,6 +47,20 @@ export async function updateEmployee(id: number, data: { name: string; role: str
   }
 }
 
+export async function deleteEmployee(id: number) {
+  try {
+    await prisma.employee.update({
+      where: { id },
+      data: { status: "INACTIVE" },
+    });
+    revalidatePath("/staff");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to delete employee:", error);
+    return { error: "Failed to remove employee" };
+  }
+}
+
 export async function getAttendancesByDate(date: Date) {
   // normalize date to start of day
   const startOfDay = new Date(date);
@@ -98,20 +112,26 @@ export async function markAttendance(employeeId: number, date: Date, status: "PR
 
 export async function getSalarySummary() {
   const employees = await prisma.employee.findMany({
+    where: { status: "ACTIVE" },
     include: {
       attendances: true,
       payouts: true,
     },
+    orderBy: { name: "asc" },
   });
 
   return employees.map((emp) => {
     const totalEarned = emp.attendances.reduce((sum, att) => sum + att.calculatedWage, 0);
+    const totalAdvanced = emp.payouts
+      .filter((p) => p.notes?.startsWith("Wage Advance"))
+      .reduce((sum, pay) => sum + pay.amount, 0);
     const totalPaid = emp.payouts.reduce((sum, pay) => sum + pay.amount, 0);
     const pendingBalance = totalEarned - totalPaid;
 
     return {
       ...emp,
       totalEarned,
+      totalAdvanced,
       totalPaid,
       pendingBalance,
     };

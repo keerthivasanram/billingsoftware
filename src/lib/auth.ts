@@ -4,30 +4,25 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 
-function getJwtSecret() {
+function getJwtSecret(): string {
   if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
-  
-  const dev = process.env.NODE_ENV !== "production";
-  if (dev) return "super-secret-key-for-billing-software-123";
 
-  const appDataPath = process.env.APPDATA || (process.platform === 'darwin' ? path.join(process.env.HOME || '', 'Library', 'Application Support') : path.join(process.env.HOME || '', '.config'));
-  const appFolder = path.join(appDataPath, 'BillingSystem');
-  const secretPath = path.join(appFolder, '.jwt_secret');
-  
+  // Persist secret next to .env so all restarts reuse the same key
+  const secretPath = path.join(process.cwd(), ".jwt_secret");
   try {
     if (fs.existsSync(secretPath)) {
-      return fs.readFileSync(secretPath, 'utf8').trim();
+      return fs.readFileSync(secretPath, "utf8").trim();
     }
-  } catch (e) {
-    // Fall back to generation
+  } catch {
+    // fall through to generate
   }
-  
-  const newSecret = crypto.randomBytes(32).toString('hex');
+
+  const newSecret = crypto.randomBytes(64).toString("hex");
   try {
-    if (!fs.existsSync(appFolder)) fs.mkdirSync(appFolder, { recursive: true });
-    fs.writeFileSync(secretPath, newSecret, 'utf8');
+    fs.writeFileSync(secretPath, newSecret, { encoding: "utf8", mode: 0o600 });
+    console.info("[auth] Generated new JWT secret → .jwt_secret  (add JWT_SECRET to .env to lock it in)");
   } catch (e) {
-    console.error("Could not save JWT secret", e);
+    console.error("[auth] Could not persist JWT secret. Sessions will reset on restart.", e);
   }
   return newSecret;
 }

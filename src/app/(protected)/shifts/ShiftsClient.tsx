@@ -54,7 +54,7 @@ export function ShiftsClient({ activeShift, recentShifts }: ShiftsClientProps) {
         <div className="bg-card rounded-2xl border border-border shadow-sm p-6 flex flex-col items-center justify-center text-center h-72">
           {activeShift ? (
             <div className="space-y-4 w-full">
-              <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 text-emerald-600 mb-2">
+              <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 mb-2">
                 <Clock className="h-8 w-8" />
               </div>
               <h2 className="text-xl font-bold text-foreground">Shift is OPEN</h2>
@@ -83,7 +83,7 @@ export function ShiftsClient({ activeShift, recentShifts }: ShiftsClientProps) {
             </div>
           ) : (
             <div className="space-y-4 w-full">
-              <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-indigo-100 text-indigo-600 mb-2">
+              <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 mb-2">
                 <Banknote className="h-8 w-8" />
               </div>
               <h2 className="text-xl font-bold text-foreground">Register is CLOSED</h2>
@@ -160,7 +160,7 @@ export function ShiftsClient({ activeShift, recentShifts }: ShiftsClientProps) {
                 return (
                   <tr key={shift.id} className="hover:bg-muted/50 transition-colors">
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${shift.status === "OPEN" ? "bg-emerald-100 text-emerald-800" : "bg-muted/50 text-foreground"}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${shift.status === "OPEN" ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-400" : "bg-muted/50 text-foreground"}`}>
                         {shift.status}
                       </span>
                     </td>

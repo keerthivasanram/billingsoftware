@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { RevenueBarChart } from "@/components/dashboard/RevenueBarChart";
 import { CategoryPieChart } from "@/components/dashboard/CategoryPieChart";
+import { RecentActivityFeed } from "@/components/dashboard/RecentActivityFeed";
+import { StatCard } from "@/components/dashboard/StatCard";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 
@@ -30,7 +32,7 @@ export default async function DashboardPage({
   // Determine chart range date
   const chartStartDate = new Date();
   let daysInChart = 7;
-  
+
   if (range === "30d") {
     daysInChart = 30;
     chartStartDate.setDate(chartStartDate.getDate() - 29);
@@ -38,7 +40,6 @@ export default async function DashboardPage({
     daysInChart = 180;
     chartStartDate.setMonth(chartStartDate.getMonth() - 6);
   } else {
-    // Default 7 days
     chartStartDate.setDate(chartStartDate.getDate() - 6);
   }
   chartStartDate.setHours(0, 0, 0, 0);
@@ -59,7 +60,7 @@ export default async function DashboardPage({
     }),
     prisma.product.count(),
     prisma.invoice.count(),
-    prisma.product.count({ where: { stock: { lt: 10 } } }),
+    prisma.product.count({ where: { stock: { lt: 10, not: 999999 } } }),
     prisma.invoice.findMany({
       take: 6,
       orderBy: { createdAt: "desc" },
@@ -67,12 +68,12 @@ export default async function DashboardPage({
     }),
     prisma.invoice.findMany({
       where: { createdAt: { gte: chartStartDate } },
-      select: { 
-        total: true, 
-        createdAt: true, 
-        subtotal: true, 
+      select: {
+        total: true,
+        createdAt: true,
+        subtotal: true,
         discountAmount: true,
-        items: { select: { qty: true, costPrice: true, returnedQty: true } } 
+        items: { select: { qty: true, costPrice: true, returnedQty: true } }
       },
     }),
     prisma.invoiceItem.findMany({
@@ -80,17 +81,16 @@ export default async function DashboardPage({
       include: { product: { select: { category: true } } },
     }),
     prisma.expense.findMany({
-      where: { date: { gte: chartStartDate } }
+      orderBy: { createdAt: "desc" },
+      take: 100
     }),
   ]);
 
   const todaySales = todaySalesResult._sum.total || 0;
 
-  // Calculate Today's Expenses
   const todayExpenses = expensesRaw.filter(e => e.date >= startOfDay && e.date <= endOfDay)
                                   .reduce((sum, e) => sum + e.amount, 0);
 
-  // Calculate Today's Profit
   const todayInvoices = chartDataRaw.filter(inv => inv.createdAt >= startOfDay && inv.createdAt <= endOfDay);
   let todayProfit = 0;
   todayInvoices.forEach(inv => {
@@ -99,17 +99,13 @@ export default async function DashboardPage({
       const soldQty = item.qty - item.returnedQty;
       costOfGoods += soldQty * item.costPrice;
     });
-    // Profit = (Subtotal - Discount) - COGS (ignoring GST)
     const revenueWithoutTax = inv.subtotal - inv.discountAmount;
     todayProfit += (revenueWithoutTax - costOfGoods);
   });
-  
-  // Deduct today's operational expenses from profit
   todayProfit -= todayExpenses;
 
-  // Process Bar Chart Data (aggregate by day or month)
   const chartMap: Record<string, { revenue: number, profit: number }> = {};
-  
+
   if (range === "6m") {
     for (let i = 0; i <= 6; i++) {
       const d = new Date();
@@ -121,7 +117,6 @@ export default async function DashboardPage({
       const key = invoice.createdAt.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
       if (chartMap[key]) {
         chartMap[key].revenue += invoice.total;
-        
         let costOfGoods = 0;
         invoice.items.forEach(item => {
           costOfGoods += (item.qty - item.returnedQty) * item.costPrice;
@@ -131,9 +126,7 @@ export default async function DashboardPage({
     });
     expensesRaw.forEach((expense) => {
       const key = expense.date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
-      if (chartMap[key]) {
-        chartMap[key].profit -= expense.amount;
-      }
+      if (chartMap[key]) chartMap[key].profit -= expense.amount;
     });
   } else {
     for (let i = 0; i < daysInChart; i++) {
@@ -146,7 +139,6 @@ export default async function DashboardPage({
       const dateStr = invoice.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
       if (chartMap[dateStr]) {
         chartMap[dateStr].revenue += invoice.total;
-        
         let costOfGoods = 0;
         invoice.items.forEach(item => {
           costOfGoods += (item.qty - item.returnedQty) * item.costPrice;
@@ -156,9 +148,7 @@ export default async function DashboardPage({
     });
     expensesRaw.forEach((expense) => {
       const dateStr = expense.date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      if (chartMap[dateStr]) {
-        chartMap[dateStr].profit -= expense.amount;
-      }
+      if (chartMap[dateStr]) chartMap[dateStr].profit -= expense.amount;
     });
   }
 
@@ -168,10 +158,9 @@ export default async function DashboardPage({
   const chartData = chartDataKeys.map((date) => ({
     date,
     total: chartMap[date].revenue,
-    profit: chartMap[date].profit > 0 ? chartMap[date].profit : 0, // Avoid negative on chart unless desired
+    profit: chartMap[date].profit > 0 ? chartMap[date].profit : 0,
   }));
 
-  // Process Pie Chart Data
   const catMap: Record<string, number> = {};
   categoryDataRaw.forEach((item) => {
     const cat = item.product.category || "Uncategorized";
@@ -185,108 +174,151 @@ export default async function DashboardPage({
   const stats = [
     {
       name: "Today's Revenue",
-      value: `₹${todaySales.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: todaySales,
+      decimals: 2,
+      prefix: "₹",
       icon: IndianRupee,
-      color: "text-blue-600",
-      bg: "bg-blue-50",
+      color: "text-violet-500",
+      bg: "bg-violet-50 dark:bg-[rgba(139,92,246,0.1)]",
     },
     {
       name: "Today's Net Profit",
-      value: `₹${todayProfit.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: todayProfit,
+      decimals: 2,
+      prefix: "₹",
       icon: IndianRupee,
-      color: "text-emerald-600",
-      bg: "bg-emerald-50",
+      color: "text-emerald-500",
+      bg: "bg-emerald-50 dark:bg-[rgba(16,185,129,0.08)]",
     },
     {
       name: "Total Bills",
-      value: totalBills.toLocaleString(),
+      value: totalBills,
+      decimals: 0,
+      prefix: "",
       icon: ReceiptText,
-      color: "text-indigo-600",
-      bg: "bg-indigo-50",
+      color: "text-cyan-500",
+      bg: "bg-cyan-50 dark:bg-[rgba(34,211,238,0.08)]",
     },
     {
       name: "Low Stock Items",
-      value: lowStockItems.toLocaleString(),
+      value: lowStockItems,
+      decimals: 0,
+      prefix: "",
       icon: AlertTriangle,
-      color: "text-rose-600",
-      bg: "bg-rose-50",
+      color: "text-rose-500",
+      bg: "bg-rose-50 dark:bg-[rgba(239,68,68,0.08)]",
     },
   ];
+
+  const activities: any[] = [];
+  if (lowStockItems > 0) {
+    activities.push({
+      id: "alert-1",
+      type: "ALERT",
+      title: `${lowStockItems} Items low on stock`,
+      timestamp: new Date(),
+      status: "warning",
+    });
+  }
+  recentInvoices.forEach((inv) => {
+    activities.push({
+      id: `inv-${inv.id}`,
+      type: "INVOICE",
+      title: `Invoice #${inv.invoiceNumber} Generated`,
+      timestamp: inv.createdAt,
+      status: "success",
+    });
+  });
+  expensesRaw.slice(0, 3).forEach((exp) => {
+    activities.push({
+      id: `exp-${exp.id}`,
+      type: "EXPENSE",
+      title: `Expense Logged: ₹${exp.amount.toLocaleString()}`,
+      timestamp: exp.createdAt,
+      status: "info",
+    });
+  });
+  activities.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
   return (
     <div className="animate-fade-in pb-12 space-y-6">
       {/* Header & Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border/50 pb-6 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-5 mb-2 border-b border-border">
         <div>
-          <h1 className="page-title">Dashboard Overview</h1>
-          <p className="page-subtitle mt-1">
-            Welcome back! Here's a detailed look at your store's performance.
-          </p>
+          <h1 className="page-title">Dashboard</h1>
+          <p className="page-subtitle mt-1">Welcome back — here&apos;s your store at a glance.</p>
         </div>
-        
-        <div className="flex items-center p-1 bg-muted/50/80 rounded-xl shadow-sm self-start">
-          <Link 
-            href="?range=7d" 
-            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${range === '7d' ? 'bg-card text-indigo-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            7 Days
-          </Link>
-          <Link 
-            href="?range=30d" 
-            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${range === '30d' ? 'bg-card text-indigo-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            30 Days
-          </Link>
-          <Link 
-            href="?range=6m" 
-            className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${range === '6m' ? 'bg-card text-indigo-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            6 Months
-          </Link>
+
+        {/* Range Switcher */}
+        <div className="flex items-center p-1 gap-1 self-start rounded-lg bg-muted border border-border">
+          {[
+            { label: "7D", value: "7d" },
+            { label: "30D", value: "30d" },
+            { label: "6M", value: "6m" },
+          ].map((opt) => (
+            <Link
+              key={opt.value}
+              href={`?range=${opt.value}`}
+              className="px-3.5 py-1.5 text-xs font-bold rounded-md transition-all"
+              style={
+                range === opt.value
+                  ? {
+                      background: "rgba(139,92,246,0.2)",
+                      color: "#c4b5fd",
+                      border: "1px solid rgba(139,92,246,0.3)",
+                    }
+                  : {
+                      color: "var(--muted-foreground)",
+                      border: "1px solid transparent",
+                    }
+              }
+            >
+              {opt.label}
+            </Link>
+          ))}
         </div>
       </div>
 
       {/* Stats Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((item) => (
-          <div key={item.name} className="stat-card flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-2xl ${item.bg} flex items-center justify-center flex-shrink-0`}>
-              <item.icon className={`h-6 w-6 ${item.color}`} />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-muted-foreground">{item.name}</p>
-              <h3 className="text-2xl font-extrabold text-foreground tracking-tight mt-0.5">
-                {item.value}
-              </h3>
-            </div>
-          </div>
+          <StatCard
+            key={item.name}
+            name={item.name}
+            value={item.value as number}
+            decimals={item.decimals}
+            prefix={item.prefix}
+            icon={<item.icon className={`h-5 w-5 ${item.color}`} />}
+            bg={item.bg}
+          />
         ))}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* Main Revenue Chart */}
-        <div className="xl:col-span-2 bg-card rounded-2xl border border-border shadow-sm p-6">
-          <div className="flex items-center justify-between mb-6">
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+        {/* Revenue Chart */}
+        <div className="xl:col-span-2 rounded-xl p-5 bg-card border border-border shadow-sm">
+          <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="section-title">Revenue Trends</h2>
-              <p className="section-subtitle mt-1">Earnings across the selected timeframe</p>
+              <h2 className="text-sm font-bold text-foreground">Revenue Trends</h2>
+              <p className="text-xs mt-0.5 text-muted-foreground">Earnings across the selected timeframe</p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
-               <ArrowUpRight className="h-5 w-5 text-indigo-600" />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-violet-50 dark:bg-[rgba(139,92,246,0.12)] border border-violet-100 dark:border-[rgba(139,92,246,0.2)]">
+              <ArrowUpRight className="h-4 w-4 text-violet-500 dark:text-[#a78bfa]" />
             </div>
           </div>
           <RevenueBarChart data={chartData} />
         </div>
 
-        {/* Category Pie Chart */}
-        <div className="bg-card rounded-2xl border border-border shadow-sm p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-6">
+        {/* Category Chart */}
+        <div className="rounded-xl p-5 flex flex-col bg-card border border-border shadow-sm">
+          <div className="flex items-center justify-between mb-5">
             <div>
-               <h2 className="section-title">Top Categories</h2>
-               <p className="section-subtitle mt-1">Items sold by category</p>
+              <h2 className="text-sm font-bold text-foreground">Top Categories</h2>
+              <p className="text-xs mt-0.5 text-muted-foreground">Items sold by category</p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
-               <PieChartIcon className="h-5 w-5 text-violet-600" />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-cyan-50 dark:bg-[rgba(34,211,238,0.08)] border border-cyan-100 dark:border-[rgba(34,211,238,0.2)]">
+              <PieChartIcon className="h-4 w-4 text-cyan-500 dark:text-[#22d3ee]" />
             </div>
           </div>
           <div className="flex-1 flex flex-col justify-center">
@@ -294,57 +326,20 @@ export default async function DashboardPage({
           </div>
         </div>
       </div>
-      
-      {/* Recent Transactions */}
-      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-border/50">
+
+      {/* Live Intelligence Feed */}
+      <div className="rounded-xl overflow-hidden bg-card border border-border shadow-sm">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
-            <h2 className="section-title">Recent Transactions</h2>
-            <p className="section-subtitle mt-1">Latest billing activities in the system</p>
+            <h2 className="text-sm font-bold text-foreground">Live Intelligence</h2>
+            <p className="text-xs mt-0.5 text-muted-foreground">Real-time system activity</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-sky-50 flex items-center justify-center flex-shrink-0">
-            <Clock className="h-5 w-5 text-sky-600" />
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-cyan-50 dark:bg-[rgba(34,211,238,0.08)] border border-cyan-100 dark:border-[rgba(34,211,238,0.15)]">
+            <Clock className="h-4 w-4 text-cyan-500 dark:text-[#22d3ee]" />
           </div>
         </div>
-        
-        <div className="divide-y divide-slate-100">
-          {recentInvoices.length === 0 ? (
-            <div className="py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
-                <ReceiptText className="h-8 w-8 text-muted-foreground/50" />
-              </div>
-              <p className="text-sm font-semibold text-muted-foreground">No recent transactions found.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-0">
-              {recentInvoices.map((inv, idx) => (
-                <Link 
-                  href={`/invoices/${inv.id}`}
-                  key={inv.id} 
-                  className={`p-5 hover:bg-muted transition-colors ${idx !== recentInvoices.length - 1 ? 'border-b sm:border-b-0 sm:border-r border-border/50' : ''}`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-muted-foreground/80 bg-muted/50 px-2 py-1 rounded-md">
-                      {inv.invoiceNumber}
-                    </span>
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      {inv.createdAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  </div>
-                  <div className="flex items-end justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-muted-foreground">
-                        {inv.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      </p>
-                    </div>
-                    <p className="text-xl font-black text-foreground">
-                      ₹{inv.total.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
+        <div className="p-4">
+          <RecentActivityFeed activities={activities} />
         </div>
       </div>
     </div>

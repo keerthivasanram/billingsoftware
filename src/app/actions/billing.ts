@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 
 export async function searchProductsForBilling(query: string) {
@@ -28,9 +29,29 @@ export async function getAllProductsForBilling() {
 export async function getAllCustomersForBilling() {
   const customers = await prisma.customer.findMany({
     orderBy: { name: 'asc' },
-    select: { id: true, name: true, phone: true }
+    select: { id: true, name: true, phone: true, balance: true }
   });
   return customers;
+}
+
+export async function collectKhataPayment(customerId: number, amount: number) {
+  if (amount <= 0) return { error: "Amount must be greater than 0" };
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const customer = await tx.customer.findUnique({ where: { id: customerId } });
+      if (!customer) throw new Error("Customer not found");
+      if (amount > customer.balance) throw new Error("Amount exceeds outstanding balance of ₹" + customer.balance.toFixed(2));
+      await tx.payment.create({ data: { amount, customerId } });
+      await tx.customer.update({ where: { id: customerId }, data: { balance: { decrement: amount } } });
+      return { newBalance: parseFloat((customer.balance - amount).toFixed(2)) };
+    });
+    revalidatePath("/customers");
+    revalidatePath("/billing");
+    return { success: true, newBalance: result.newBalance };
+  } catch (e: unknown) {
+    const err = e as Error;
+    return { error: err.message || "Failed to collect payment" };
+  }
 }
 
 export type CartItem = {
@@ -61,8 +82,20 @@ export async function createInvoice(
     return { error: "Cart is empty" };
   }
 
+  const session = await getSession();
+  const cashierName = (session?.username as string) || "Staff";
+
   try {
     const result = await prisma.$transaction(async (tx) => {
+      // 0. Stock validation — prevent overselling
+      for (const item of cart) {
+        const product = await tx.product.findUnique({ where: { id: item.productId }, select: { stock: true, name: true } });
+        if (!product) throw new Error(`Product not found: ${item.productId}`);
+        if (product.stock !== 999999 && product.stock < item.qty) {
+          throw new Error(`Insufficient stock for "${product.name}". Available: ${product.stock}, Requested: ${item.qty}`);
+        }
+      }
+
       let customerId: number | undefined;
 
       // 1. Create or find Customer if data is provided
@@ -87,13 +120,16 @@ export async function createInvoice(
         }
       }
 
-      // 2. Generate unique invoice number (INV-YYYYMMDD-XXXX)
+      // 2. Generate unique sequential invoice number (INV-YYYYMMDD-NNNN)
       const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      const randomStr = Math.random()
-        .toString(36)
-        .substring(2, 6)
-        .toUpperCase();
-      const invoiceNumber = `INV-${dateStr}-${randomStr}`;
+      const prefix = `INV-${dateStr}-`;
+      const lastInvoice = await tx.invoice.findFirst({
+        where: { invoiceNumber: { startsWith: prefix } },
+        orderBy: { invoiceNumber: "desc" },
+        select: { invoiceNumber: true },
+      });
+      const lastSeq = lastInvoice ? parseInt(lastInvoice.invoiceNumber.slice(prefix.length), 10) : 0;
+      const invoiceNumber = `${prefix}${String(lastSeq + 1).padStart(4, "0")}`;
 
       // 3. Create or Update Order if needed
       let linkedOrderId = billingDetails.orderId;
@@ -126,16 +162,17 @@ export async function createInvoice(
         linkedOrderId = newOrder.id;
       }
 
-      // 4. Create Invoice
+      // 4. Create Invoice (round all monetary values to 2dp)
       const invoice = await tx.invoice.create({
         data: {
           invoiceNumber,
           customerId,
-          subtotal: billingDetails.subtotal,
-          gstRate: billingDetails.gstRate,
-          gstAmount: billingDetails.gstAmount,
-          discountAmount: billingDetails.discountAmount,
-          total: billingDetails.total,
+          subtotal: parseFloat(billingDetails.subtotal.toFixed(2)),
+          gstRate: parseFloat(billingDetails.gstRate.toFixed(2)),
+          gstAmount: parseFloat(billingDetails.gstAmount.toFixed(2)),
+          discountAmount: parseFloat(billingDetails.discountAmount.toFixed(2)),
+          total: parseFloat(billingDetails.total.toFixed(2)),
+          cashierName,
           paymentMethod: billingDetails.paymentMethod,
           orderId: linkedOrderId,
           items: {
@@ -164,15 +201,11 @@ export async function createInvoice(
         });
       }
 
-      // 5. Decrement Stock
+      // 5. Decrement Stock (skip unlimited-stock items)
       for (const item of cart) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: {
-            stock: {
-              decrement: item.qty,
-            },
-          },
+        await tx.product.updateMany({
+          where: { id: item.productId, stock: { not: 999999 } },
+          data: { stock: { decrement: item.qty } },
         });
       }
 
@@ -184,7 +217,7 @@ export async function createInvoice(
     revalidatePath("/billing");
     revalidatePath("/reports");
 
-    return { success: true, invoiceId: result.id };
+    return { success: true, invoiceId: result.id, invoiceNumber: result.invoiceNumber };
   } catch (error) {
     console.error("Invoice Creation Error:", error);
     return { error: "Failed to complete transaction" };

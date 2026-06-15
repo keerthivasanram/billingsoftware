@@ -118,7 +118,7 @@ export function PurchasesClient({ initialSuppliers, initialPurchases, products }
                       <td suppressHydrationWarning>{new Date(p.createdAt).toLocaleDateString()}</td>
                       <td className="font-medium text-foreground/90">{p.invoiceNumber}</td>
                       <td>{p.supplier?.name}</td>
-                      <td className="text-right font-bold text-teal-700">₹{p.total.toFixed(2)}</td>
+                      <td className="text-right font-bold text-teal-700 dark:text-teal-400">₹{p.total.toFixed(2)}</td>
                     </tr>
                   ))
                 )}
@@ -291,7 +291,7 @@ function PurchaseOrderModal({ suppliers, products, onClose }: any) {
 
         <div className="px-6 py-4 border-t border-border/50 flex items-center justify-between bg-muted">
           <div className="text-muted-foreground">
-            Grand Total: <span className="text-xl font-black text-teal-700 ml-2">₹{total.toFixed(2)}</span>
+            Grand Total: <span className="text-xl font-black text-teal-700 dark:text-teal-400 ml-2">₹{total.toFixed(2)}</span>
           </div>
           <div className="flex gap-2">
             <button onClick={onClose} className="btn btn-secondary">Cancel</button>

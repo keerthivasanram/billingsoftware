@@ -14,7 +14,9 @@ export async function createProduct(formData: FormData) {
   const costPrice = parseFloat(formData.get("costPrice") as string) || 0;
   const gstRate = parseFloat(formData.get("gstRate") as string) || 0;
   const stock = parseInt(formData.get("stock") as string, 10);
-  const category = formData.get("category") as string;
+  const category = (formData.get("category") as string) || null;
+  const unit = (formData.get("unit") as string) || "pcs";
+  const hsnCode = (formData.get("hsnCode") as string) || null;
   const imageFile = formData.get("image") as File | null;
 
   if (!name || isNaN(price) || isNaN(stock)) {
@@ -22,7 +24,13 @@ export async function createProduct(formData: FormData) {
   }
 
   if (!barcode) {
-    barcode = `BAR-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    let candidate = "";
+    for (let attempt = 0; attempt < 10; attempt++) {
+      candidate = `BAR-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const exists = await prisma.product.findUnique({ where: { barcode: candidate } });
+      if (!exists) { barcode = candidate; break; }
+    }
+    if (!barcode) barcode = `BAR-${Date.now()}`;
   }
 
   let imageUrl = null;
@@ -51,6 +59,8 @@ export async function createProduct(formData: FormData) {
         gstRate,
         stock,
         category,
+        unit,
+        hsnCode,
         imageUrl,
       },
     });
@@ -72,7 +82,9 @@ export async function updateProduct(id: number, formData: FormData) {
   const costPrice = parseFloat(formData.get("costPrice") as string) || 0;
   const gstRate = parseFloat(formData.get("gstRate") as string) || 0;
   const stock = parseInt(formData.get("stock") as string, 10);
-  const category = formData.get("category") as string;
+  const category = (formData.get("category") as string) || null;
+  const unit = (formData.get("unit") as string) || "pcs";
+  const hsnCode = (formData.get("hsnCode") as string) || null;
   const imageFile = formData.get("image") as File | null;
 
   if (!name || !barcode || isNaN(price) || isNaN(stock)) {
@@ -98,7 +110,7 @@ export async function updateProduct(id: number, formData: FormData) {
   }
 
   try {
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       name,
       barcode,
       price,
@@ -106,6 +118,8 @@ export async function updateProduct(id: number, formData: FormData) {
       gstRate,
       stock,
       category,
+      unit,
+      hsnCode,
     };
     if (imageUrl !== undefined) {
       updateData.imageUrl = imageUrl;
@@ -160,9 +174,10 @@ export async function bulkImportProducts(products: BulkProductInput[]) {
         // Basic validation
         if (!p.name || isNaN(p.price) || isNaN(p.stock)) continue;
         
-        let finalBarcode = p.barcode;
-        if (!finalBarcode || finalBarcode.trim() === "") {
-          finalBarcode = `BAR-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        let finalBarcode = p.barcode?.trim() || "";
+        if (!finalBarcode) {
+          // Unique barcode: timestamp + random suffix guarantees uniqueness within a batch
+          finalBarcode = `BAR-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
         }
         
         await tx.product.upsert({
