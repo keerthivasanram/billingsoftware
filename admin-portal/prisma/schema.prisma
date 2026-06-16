@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id        String   @id @default(uuid())
+  name      String
+  email     String?
+  phone     String?
+  licenses  License[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model License {
+  id         String   @id @default(uuid())
+  key        String   @unique
+  clientId   String
+  client     Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  status     String   @default("ACTIVE") // ACTIVE, EXPIRED, REVOKED
+  hardwareId String?  // Optional hardware lock
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Lead {
+  id           String   @id @default(uuid())
+  name         String
+  businessName String
+  email        String?
+  phone        String
+  status       String   @default("PENDING") // PENDING, CONVERTED, REJECTED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
