@@ -60,12 +60,18 @@ export default async function InvoicesPage({
   if (from || to) {
     where.createdAt = {};
     if (from) {
-      const d = new Date(from); d.setHours(0, 0, 0, 0);
-      where.createdAt.gte = d;
+      const d = new Date(from);
+      if (!isNaN(d.getTime())) {
+        d.setHours(0, 0, 0, 0);
+        where.createdAt.gte = d;
+      }
     }
     if (to) {
-      const d = new Date(to); d.setHours(23, 59, 59, 999);
-      where.createdAt.lte = d;
+      const d = new Date(to);
+      if (!isNaN(d.getTime())) {
+        d.setHours(23, 59, 59, 999);
+        where.createdAt.lte = d;
+      }
     }
   }
 

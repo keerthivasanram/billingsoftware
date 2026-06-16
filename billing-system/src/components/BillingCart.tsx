@@ -134,6 +134,7 @@ export function BillingCart() {
   const [selectedOrderMode, setSelectedOrderMode] = useState("DINE_IN");
   const [printKotData, setPrintKotData] = useState<KOTData | null>(null);
   const [khataPayAmount, setKhataPayAmount] = useState<string>("");
+  const [printKOT, setPrintKOT] = useState<boolean>(true);
 
   const router = useRouter();
 
@@ -306,14 +307,16 @@ export function BillingCart() {
         await loadTablesAndOrders();
 
         if (printBill) {
-          // 1. Print kitchen copy in a popup → user directs to kitchen printer
-          printKitchenCopy({
-            invoiceNumber: result.invoiceNumber || `#${result.invoiceId}`,
-            items: cartSnapshot.map(i => ({ name: i.name, qty: i.qty })),
-            tableName: tables.find(t => t.id === activeTableId)?.name,
-            customerName: customerName || undefined,
-            orderMode: selectedOrderMode,
-          });
+          // 1. Print kitchen copy in a popup if selected
+          if (printKOT) {
+            printKitchenCopy({
+              invoiceNumber: result.invoiceNumber || `#${result.invoiceId}`,
+              items: cartSnapshot.map(i => ({ name: i.name, qty: i.qty })),
+              tableName: tables.find(t => t.id === activeTableId)?.name,
+              customerName: customerName || undefined,
+              orderMode: selectedOrderMode,
+            });
+          }
           // 2. Navigate to invoice with ?autoprint=1 → customer bill auto-prints there
           router.push(`/invoices/${result.invoiceId}?autoprint=1`);
         } else {
@@ -1256,9 +1259,19 @@ export function BillingCart() {
                         onBlur={e => (e.currentTarget as HTMLTextAreaElement).style.border = `1px solid ${S.border}`}
                       />
                     </div>
-                    <div className="rounded-lg px-3 py-2 text-xs font-semibold" style={{ background: "rgba(175,23,99,0.1)", border: `1px solid rgba(175,23,99,0.25)`, color: "#f9a8d4" }}>
-                      <span className="font-black">Print Both Bills</span> — kitchen copy goes to kitchen printer, customer copy to billing counter.
-                    </div>
+                    <label className="flex items-start gap-3 rounded-lg px-3 py-3 cursor-pointer transition-colors mt-2" style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${S.border}` }}>
+                      <input 
+                        type="checkbox" 
+                        checked={printKOT} 
+                        onChange={(e) => setPrintKOT(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 cursor-pointer"
+                        style={{ accentColor: S.violet }}
+                      />
+                      <div className="flex flex-col">
+                        <span className="text-xs font-black text-white leading-tight">Include KOT (Kitchen Copy)</span>
+                        <span className="text-[10px] text-muted-foreground mt-0.5">Sends a preparation ticket to the kitchen printer.</span>
+                      </div>
+                    </label>
                   </div>
                 </div>
 
@@ -1350,7 +1363,7 @@ export function BillingCart() {
                   }}
                 >
                   <Printer className="h-5 w-5" />
-                  {isCheckingOut ? "Processing…" : "Print Both Bills"}
+                  {isCheckingOut ? "Processing…" : (printKOT ? "Print Bill + KOT" : "Print Bill Only")}
                 </button>
               </div>
             </motion.div>
